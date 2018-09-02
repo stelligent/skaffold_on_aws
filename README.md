@@ -16,9 +16,23 @@ if you wish to create an applie pie from scratch, you must first create the univ
         ParameterKey="KeyName",ParameterValue="jonny-labs" \
         ParameterKey="NodeImageId",ParameterValue="ami-0b2ae3c6bda8b5c06"
 
-We'll need to install a few things for Skaffold to work
+We'll need to install a few things for everything to work
 
-`kubectl`
+## aws-am-authenticator
+
+This is used to get `kubectl` to authenticate to your EKS cluster.
+
+    curl -o aws-iam-authenticator https://amazon-eks.s3-us-west-2.amazonaws.com/1.10.3/2018-07-26/bin/linux/amd64/aws-iam-authenticator
+    chmod +x ./aws-iam-authenticator
+    mkdir -p $HOME/bin # ...just in case
+    cp ./aws-iam-authenticator $HOME/bin/aws-iam-authenticator && export PATH=$HOME/bin:$PATH
+
+Confirm it is installed correctly with this command:
+
+    aws-iam-authenticator help
+
+## kubectl
+
 This is used to interact with your EKS cluster.
 
     sudo apt-get update && sudo apt-get install -y apt-transport-https
@@ -32,19 +46,49 @@ Confirm it's installed correctly with this command:
 
     kubectl version --short --client
 
-`aws-am-authenticator`
+Now we'll need to create a `kubeconfig` file. 
 
-This is used to get `kubectl` to authenticate to your EKS cluster.
+    cluster_name=$(aws cloudformation describe-stack-resources --stack-name $stack_name --query StackResources[?ResourceType==\'AWS::EKS::Cluster\'].PhysicalResourceId --output text)
+    endpoint_url=$(aws eks describe-cluster --name $cluster_name  --query cluster.endpoint --output text)
+    ca_cert=$(aws eks describe-cluster --name $cluster_name  --query cluster.certificateAuthority.data --output text)
+    mkdir -p ~/.kube
+    cat << KBCFG > ~/.kube/config-${cluster_name}
+    apiVersion: v1
+    clusters:
+    - cluster:
+        server: $endpoint_url
+        certificate-authority-data: $ca_cert
+      name: kubernetes
+    contexts:
+    - context:
+        cluster: kubernetes
+        user: aws
+      name: aws
+    current-context: aws
+    kind: Config
+    preferences: {}
+    users:
+    - name: aws
+      user:
+        exec:
+          apiVersion: client.authentication.k8s.io/v1alpha1
+          command: aws-iam-authenticator
+          args:
+            - "token"
+            - "-i"
+            - "$cluster_name"
+    KBCFG
+    export KUBECONFIG=$KUBECONFIG:~/.kube/config-${cluster_name}
 
-    curl -o aws-iam-authenticator https://amazon-eks.s3-us-west-2.amazonaws.com/1.10.3/2018-07-26/bin/linux/amd64/aws-iam-authenticator
-    chmod +x ./aws-iam-authenticator
-    cp ./aws-iam-authenticator $HOME/bin/aws-iam-authenticator && export PATH=$HOME/bin:$PATH
+You can confirm everything is working with this command:
 
-Confirm it is installed correctly with this command:
+    kubectl get svc
 
-    aws-iam-authenticator help
+If that doesn't give you back some cluster info, running it in verbose mode should help you figure out why:
 
-`skaffold`
+    kubectl get svc --v=10
+
+## skaffold
 
 And we'll actually need to install Skaffold
 
