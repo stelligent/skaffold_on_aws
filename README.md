@@ -2,8 +2,12 @@
 stelligent (probably) won't pay for my gcp account, so let's get [Skaffold](https://github.com/GoogleContainerTools/skaffold) running on AWS!
 
 # assumptions
-* [you've got the aws cli configured](https://docs.aws.amazon.com/cli/latest/userguide/installing.html)
+* [you've got the aws cli install and configured](https://docs.aws.amazon.com/cli/latest/userguide/installing.html)
+* [you've got docker installed and configured](https://docs.docker.com/install/)
 
+If you're looking to run this in a container because you don't want to mess up your laptop, this command might be helpful (you'll need to install the AWS CLI):
+
+    docker run -it -v /var/run/docker.sock:/var/run/docker.sock -v /usr/local/bin/docker:/usr/bin/docker python:latest bash
 
 # things to do
 if you wish to create an applie pie from scratch, you must first create the universe. So let's create a eks cluster, and everything you need for that, starting with the VPC.
