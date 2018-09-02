@@ -4,6 +4,7 @@ stelligent (probably) won't pay for my gcp account, so let's get [Skaffold](http
 # assumptions
 * [you've got the aws cli configured](https://docs.aws.amazon.com/cli/latest/userguide/installing.html)
 
+
 # things to do
 if you wish to create an applie pie from scratch, you must first create the universe. So let's create a eks cluster, and everything you need for that, starting with the VPC.
 
@@ -93,3 +94,28 @@ If that doesn't give you back some cluster info, running it in verbose mode shou
 And we'll actually need to install Skaffold
 
     curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64 && chmod +x skaffold && sudo mv skaffold /usr/local/bin
+
+And now configure it to work with EKS/ECR:
+
+    export ecr=$(aws cloudformation describe-stack-resources --stack-name $stack_name --query StackResources[?ResourceType==\'AWS::ECR::Repository\'].PhysicalResourceId --output text)
+    export repository_uri=$(aws ecr describe-repositories --repository-names $ecr --query repositories[*].repositoryUri --output text)
+
+    cat << SKFLDCFG > skaffold.yml
+    apiVersion: skaffold/v1alpha2
+    kind: Config
+    build:
+      artifacts:
+      - imageName: ${repository_uri}/skaffold-example
+    deploy:
+      kubectl:
+        manifests:
+          - k8s-*
+    SKFLDCFG
+
+
+
+
+
+
+
+
