@@ -10,7 +10,7 @@ If you're looking to run this in a container because you don't want to mess up y
     docker run -it -v /var/run/docker.sock:/var/run/docker.sock -v /usr/local/bin/docker:/usr/bin/docker python:latest bash
 
 # things to do
-if you wish to create an applie pie from scratch, you must first create the universe. So let's create a eks cluster, and everything you need for that, starting with the VPC.
+If you wish to create an apple pie from scratch, you must first create the universe. So let's create an EKS cluster, and everything you need for that, starting with the VPC. *KeyName* should be an ec2 keypair you have in the account; *NodeImageId* should be either `ami-08cab282f9979fc7a` for us-west-2, or `ami-0b2ae3c6bda8b5c06` for us-east-1.
 
     export stack_name=skaffold-on-aws-$(date +%Y%m%d%H%M%S)
     aws cloudformation create-stack \
@@ -21,7 +21,7 @@ if you wish to create an applie pie from scratch, you must first create the univ
         ParameterKey="KeyName",ParameterValue="jonny-labs" \
         ParameterKey="NodeImageId",ParameterValue="ami-0b2ae3c6bda8b5c06"
 
-We'll need to install a few things for everything to work
+That stack is gonna take about 15m to come up. In the meantime, we'll need to install a few things for everything to work
 
 ## aws-am-authenticator
 
@@ -85,7 +85,7 @@ Now we'll need to create a `kubeconfig` file.
     KBCFG
     export KUBECONFIG=$KUBECONFIG:~/.kube/config-${cluster_name}
 
-You can confirm everything is working with this command:
+You can confirm everything is working with this command (assuming the cloudformation stack above has completed!:
 
     kubectl get svc
 
@@ -97,14 +97,16 @@ If that doesn't give you back some cluster info, running it in verbose mode shou
 
 And we'll actually need to install Skaffold
 
-    curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64 && chmod +x skaffold && sudo mv skaffold /usr/local/bin
+    curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64
+    chmod +x skaffold
+    sudo mv skaffold $HOME/bin
 
 And now configure it to work with EKS/ECR:
 
     export ecr=$(aws cloudformation describe-stack-resources --stack-name $stack_name --query StackResources[?ResourceType==\'AWS::ECR::Repository\'].PhysicalResourceId --output text)
     export repository_uri=$(aws ecr describe-repositories --repository-names $ecr --query repositories[*].repositoryUri --output text)
 
-    cat << SKFLDCFG > skaffold.yml
+    cat << SKFLDCFG > skaffold.yaml
     apiVersion: skaffold/v1alpha2
     kind: Config
     build:
@@ -116,8 +118,16 @@ And now configure it to work with EKS/ECR:
           - k8s-*
     SKFLDCFG
 
-
-
+    cat << PODCFG > k8s-pod.yaml
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: getting-started
+    spec:
+      containers:
+      - name: getting-started
+        image: ${repository_uri}/skaffold-example
+    PODCFG
 
 
 
