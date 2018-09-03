@@ -5,9 +5,14 @@ stelligent (probably) won't pay for my gcp account, so let's get [Skaffold](http
 * [you've got the aws cli install and configured](https://docs.aws.amazon.com/cli/latest/userguide/installing.html)
 * [you've got docker installed and configured](https://docs.docker.com/install/)
 
-If you're looking to run this in a container because you don't want to mess up your laptop, this command might be helpful (you'll need to install the AWS CLI):
+If you'd rather do this on an EC2 instance instead of your laptop, I got you fam:
 
-    docker run -it -v /var/run/docker.sock:/var/run/docker.sock -v /usr/local/bin/docker:/usr/bin/docker python:latest bash
+    aws cloudformation create-stack \
+      --stack-name workstation-$(date +%Y%m%d%H%M%S) \
+      --template-body file://provisioning/workstation.yml \
+      --capabilities CAPABILITY_IAM \
+      --parameters \
+        ParameterKey="KeyName",ParameterValue="your-key-pair"
 
 # things to do
 If you wish to create an apple pie from scratch, you must first create the universe. So let's create an EKS cluster, and everything you need for that, starting with the VPC. *KeyName* should be an ec2 keypair you have in the account; *NodeImageId* should be either `ami-08cab282f9979fc7a` for us-west-2, or `ami-0b2ae3c6bda8b5c06` for us-east-1.
@@ -103,6 +108,8 @@ And we'll actually need to install Skaffold
 
 And now configure it to work with EKS/ECR:
 
+    # login to ECR
+    $(aws ecr get-login --no-include-email)
     export ecr=$(aws cloudformation describe-stack-resources --stack-name $stack_name --query StackResources[?ResourceType==\'AWS::ECR::Repository\'].PhysicalResourceId --output text)
     export repository_uri=$(aws ecr describe-repositories --repository-names $ecr --query repositories[*].repositoryUri --output text)
 
@@ -111,7 +118,7 @@ And now configure it to work with EKS/ECR:
     kind: Config
     build:
       artifacts:
-      - imageName: ${repository_uri}/skaffold-example
+      - imageName: ${repository_uri}
     deploy:
       kubectl:
         manifests:
@@ -126,7 +133,7 @@ And now configure it to work with EKS/ECR:
     spec:
       containers:
       - name: getting-started
-        image: ${repository_uri}/skaffold-example
+        image: ${repository_uri}
     PODCFG
 
 

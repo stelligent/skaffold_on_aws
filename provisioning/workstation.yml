@@ -1,0 +1,81 @@
+# source: http://www.blog.labouardy.com/attach-an-iam-role-to-an-ec2-instance-with-cloudformation/
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Attach IAM Role to an EC2
+Parameters:
+  KeyName:
+    Description: EC2 Instance SSH Key
+    Type: AWS::EC2::KeyPair::KeyName
+  InstanceType:
+    Description: EC2 instance specs configuration
+    Type: String
+    Default: t2.micro
+  AMIID:
+    Description: EC2 instance specs configuration
+    Type: String
+    Default: ami-04169656fea786776
+
+Resources:
+  WorkstationInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref 'InstanceType'
+      ImageId: !Ref 'AMIID'
+      KeyName: !Ref 'KeyName'
+      IamInstanceProfile: !Ref 'AdminInstanceProfile'
+      SecurityGroupIds:
+        - !Ref 'SSHAccessSG'
+      Tags:
+        - Key: Name
+          Value: Workstation
+  SSHAccessSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH access from anywhere
+      SecurityGroupIngress:
+        - FromPort: '22'
+          ToPort: '22'
+          IpProtocol: tcp
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: SSHAccessSG
+  AdminInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref 'AdminRole'
+  AdminPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: ListS3BucketsPolicy
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: '*'
+            Resource: '*'
+      Roles:
+        - !Ref 'AdminRole'
+  AdminRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+Outputs:
+  EC2:
+    Description: EC2 IP address
+    Value: !Join
+      - ''
+      - - ssh ec2-user@
+        - !GetAtt 'WorkstationInstance.PublicIp'
+        - ' -i '
+        - !Ref 'KeyName'
+        - .pem
