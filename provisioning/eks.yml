@@ -357,3 +357,7 @@ Outputs:
   VpcId:
     Description: The VPC Id
     Value: !Ref VPC
+
+  NodeGroupRoleArn:
+    Description: The ARN of the role for Node Group instances
+    Value: !Ref NodeInstanceRole.Arn
