@@ -360,4 +360,4 @@ Outputs:
 
   NodeGroupRoleArn:
     Description: The ARN of the role for Node Group instances
-    Value: !Ref NodeInstanceRole.Arn
+    Value: !GetAtt [NodeInstanceRole, Arn]
