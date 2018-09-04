@@ -14,6 +14,8 @@ If you'd rather do this on an EC2 instance instead of your laptop, I got you fam
       --parameters \
         ParameterKey="KeyName",ParameterValue="your-key-pair"
 
+Tho, if you do that, it might be hard to make changes to your code and see them autodeploy.
+
 # things to do
 If you wish to create an apple pie from scratch, you must first create the universe. So let's create an EKS cluster, and everything you need for that, starting with the VPC. *KeyName* should be an ec2 keypair you have in the account; *NodeImageId* should be either `ami-08cab282f9979fc7a` for us-west-2, or `ami-0b2ae3c6bda8b5c06` for us-east-1.
 
@@ -98,6 +100,31 @@ If that doesn't give you back some cluster info, running it in verbose mode shou
 
     kubectl get svc --v=10
 
+With `kubectl` installed, we need to use it to add our nodes to the EKS Cluster.
+
+    node_group_role_arn=$(aws cloudformation describe-stacks --stack-name $stack_name --query Stacks[*].Outputs[?OutputKey==\'NodeGroupRoleArn\'].OutputValue --output text)
+    cat << AUTHCFG > aws-auth-cm.yaml
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: aws-auth
+      namespace: kube-system
+    data:
+      mapRoles: |
+        - rolearn: $node_group_role_arn
+          username: system:node:{{EC2PrivateDNSName}}
+          groups:
+            - system:bootstrappers
+            - system:nodes
+    AUTHCFG
+    kubectl apply -f aws-auth-cm.yaml
+
+It will take a few moments for the nodes to be added. You can check their progress with this command:
+
+     kubectl get nodes
+
+ You're looking for the `STATUS` field to be `Ready` for all nodes.
+
 ## skaffold
 
 And we'll actually need to install Skaffold
@@ -110,9 +137,24 @@ And now configure it to work with EKS/ECR:
 
     # login to ECR
     $(aws ecr get-login --no-include-email)
+
+    # lookup all relevant information
     export ecr=$(aws cloudformation describe-stack-resources --stack-name $stack_name --query StackResources[?ResourceType==\'AWS::ECR::Repository\'].PhysicalResourceId --output text)
     export repository_uri=$(aws ecr describe-repositories --repository-names $ecr --query repositories[*].repositoryUri --output text)
+    export region=us-east-1
+    export secret=${region}-ecr-registry
+    export password=$(aws ecr get-authorization-token --output text --query authorizationData[].authorizationToken | base64 -d | cut -d: -f2)
+    email=user@host.com
 
+    # configure kubes to log into ECR
+    kubectl delete secret --ignore-not-found $secret
+    kubectl create secret docker-registry $secret \
+     --docker-server=https://${repository_uri} \
+     --docker-username=AWS \
+     --docker-password="${password}" \
+     --docker-email="${email}"
+
+    # set up skaffold and k8s configuration files
     cat << SKFLDCFG > skaffold.yaml
     apiVersion: skaffold/v1alpha2
     kind: Config
@@ -131,12 +173,25 @@ And now configure it to work with EKS/ECR:
     metadata:
       name: getting-started
     spec:
+      hostNetwork: true
       containers:
       - name: getting-started
         image: ${repository_uri}
+        ports:
+        - containerPort: 80
+      imagePullSecrets:
+      - name: us-east-1-ecr-registry  
     PODCFG
 
+Alright, at this point you should be able to run skaffold and have it deploy
 
+    skaffold dev
+
+And then in another window if you run
+
+    kubectl describe pods
+
+You should see all the information about your running container! If you make any changes in that directory, Skaffold will detect it, rebuild the container, and push it to your Kubernetes cluster.
 
 
 
