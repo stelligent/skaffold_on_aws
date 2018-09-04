@@ -1,6 +1,118 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'An EKS Sample VPC'
+Description: 'i'd race snails instead but i don't really wanna go outside
 
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 192.168.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+      - Key: Name
+        Value: !Sub '${AWS::StackName}-VPC'
+
+  InternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+
+  VPCGatewayAttachment:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: Public Subnets
+      - Key: Network
+        Value: Public
+
+  Route:
+    DependsOn: VPCGatewayAttachment
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  Subnet01:
+    Type: AWS::EC2::Subnet
+    Metadata:
+      Comment: Subnet 01
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+        - '2'
+        - Fn::GetAZs:
+            Ref: AWS::Region
+      CidrBlock: 192.168.64.0/18
+      VpcId:
+        Ref: VPC
+      Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-Subnet01"
+
+  Subnet02:
+    Type: AWS::EC2::Subnet
+    Metadata:
+      Comment: Subnet 02
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+        - '3'
+        - Fn::GetAZs:
+            Ref: AWS::Region
+      CidrBlock: 192.168.128.0/18
+      VpcId:
+        Ref: VPC
+      Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-Subnet02"
+
+  Subnet03:
+    Type: AWS::EC2::Subnet
+    Metadata:
+      Comment: Subnet 03
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+        - '4'
+        - Fn::GetAZs:
+            Ref: AWS::Region
+      CidrBlock: 192.168.192.0/18
+      VpcId:
+        Ref: VPC
+      Tags:
+      - Key: Name
+        Value: !Sub "${AWS::StackName}-Subnet03"
+
+  Subnet01RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Subnet01
+      RouteTableId: !Ref RouteTable
+
+  Subnet02RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Subnet02
+      RouteTableId: !Ref RouteTable
+
+  Subnet03RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Subnet03
+      RouteTableId: !Ref RouteTable
+
+  ControlPlaneSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Cluster communication with worker nodes
+      VpcId: !Ref VPC
   EKSCluster:
     Type: "AWS::EKS::Cluster"
     Properties:
@@ -13,8 +125,40 @@ Description: 'An EKS Sample VPC'
           - !Ref Subnet03
       RoleArn: 
         Fn::GetAtt: [ EKSServiceRole, Arn ]
+  EKSServiceRole:
+    Type: AWS::IAM::Role
+    DependsOn: DBSubnetGroup
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Effect: "Allow"
+            Principal: 
+              Service: 
+                - "eks.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+        - arn:aws:iam::aws:policy/AmazonEKSServicePolicy
 
   RDSInstance:
     Type: AWS::RDS::DBInstance
     Properties:
       DBInstanceClass: db.t2.small
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      AllocatedStorage: 5
+      Engine: postgres
+      MasterUsername: snailrace
+      MasterUserPassword: snailrace
+
+
+  DBSubnetGroup: 
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties: 
+      DBSubnetGroupDescription: "why is a description required is what i want to know"
+      SubnetIds: 
+        - !Ref Subnet01
+        - !Ref Subnet02
+        - !Ref Subnet03
