@@ -298,10 +298,10 @@ Resources:
   NodeGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      DesiredCapacity: 3
+      DesiredCapacity: 1
       LaunchConfigurationName: !Ref NodeLaunchConfig
-      MinSize: 3
-      MaxSize: 3
+      MinSize: 1
+      MaxSize: 1
       VPCZoneIdentifier:
           - !Ref Subnet01
           - !Ref Subnet02
