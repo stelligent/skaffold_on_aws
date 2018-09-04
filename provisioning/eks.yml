@@ -229,6 +229,17 @@ Resources:
       - Key: !Sub "kubernetes.io/cluster/${EKSCluster}"
         Value: 'owned'
 
+  HttpSecurityGroupIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    DependsOn: NodeSecurityGroup
+    Properties:
+      Description: Allow node to communicate with each other
+      GroupId: !Ref NodeSecurityGroup
+      CidrIp: 0.0.0.0/0
+      IpProtocol: tcp
+      FromPort: 80
+      ToPort: 80
+
   NodeSecurityGroupIngress:
     Type: AWS::EC2::SecurityGroupIngress
     DependsOn: NodeSecurityGroup
