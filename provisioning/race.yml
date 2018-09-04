@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'i'd race snails instead but i don't really wanna go outside
+Description: i would race snails instead but i dont really wanna go outside
 
 Resources:
   VPC:
