@@ -30,7 +30,7 @@ If you wish to create an apple pie from scratch, you must first create the unive
 
 That stack is gonna take about 15m to come up. In the meantime, we'll need to install a few things for everything to work
 
-## aws-am-authenticator
+## aws-iam-authenticator
 
 This is used to get `kubectl` to authenticate to your EKS cluster.
 
